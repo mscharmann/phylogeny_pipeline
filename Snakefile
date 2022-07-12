@@ -346,7 +346,7 @@ rule get_window_fastas:
 			cat ${{case}}_${{wname}}.temp.fasta >> window_${{wname}}.fasta
 			rm ${{case}}_${{wname}}.temp.fasta 
 		done
-		python2.7 scripts/filter_column_presence.py 0.9 window_${{wname}}.fasta > window_fastas/window_${{wname}}.filtered.fasta
+		python scripts/filter_column_presence.py 0.9 window_${{wname}}.fasta > window_fastas/window_${{wname}}.filtered.fasta
 		rm window_${{wname}}.fasta
 		done < {input.windows}
 		
