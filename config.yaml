@@ -1,0 +1,9 @@
+genomefile: "data/fakegenome.fa"
+samples_units_fqs_map: "data/samples_units_readfiles.txt"
+
+# bcftools jobs will be split to run on chunks of the data with equal size.
+varcall_chunksize: 10490000
+
+# VCF_MISS: VCFTOOLS --max-missing argument. 1 = only fully present sites pass, 0.9 = at most 10% of samples are missing. Applied globally over all samples.
+VCF_QUAL: 20
+VCF_MIN_DEPTH: 6

@@ -1,0 +1,7 @@
+sample	unit	fq1	fq2
+sample_1	1	data/sample_F_1.1.fastq.gz	data/sample_F_1.2.fastq.gz
+sample_1	2	data/sample_F_2.1.fastq.gz	data/sample_F_2.2.fastq.gz
+sample_2	1	data/sample_F_3.1.fastq.gz	data/sample_F_3.2.fastq.gz
+sample_3	1	data/sample_M_1.1.fastq.gz	data/sample_M_1.2.fastq.gz
+sample_4	1	data/sample_M_2.1.fastq.gz	data/sample_M_2.2.fastq.gz
+sample_4	2	data/sample_M_3.1.fastq.gz	data/sample_M_3.2.fastq.gz
