@@ -1,0 +1,54 @@
+{
+    "__default__" :
+    {
+        "time" : "04:00:00",
+        "CPUs" : 1,
+        "RAM_memory" : "10G",
+        "partition" : "cpu"
+    },
+    "bwa_map" :
+    {
+        "time" : "06:00:00",
+        "CPUs" : 12,
+        "RAM_memory" : "20G",
+        "partition" : "cpu"
+    },
+    "call_variants" :
+    {
+        "time" : "02:00:00",
+        "CPUs" : 1,
+        "RAM_memory" : "2G",
+        "partition" : "cpu"
+    },
+    "merge_filtered_vcfs" :
+    {
+        "time" : "48:00:00",
+        "CPUs" : 1,
+        "RAM_memory" : "20G",
+        "partition" : "cpu"
+    },
+    "VCF_filter_variants" :
+    {
+    	"time" : "00:30:00",
+        "CPUs" : 1,
+        "RAM_memory" : "1G",
+        "partition" : "cpu"
+    },
+    "apply_variants_and_gaps_to_genome" :
+    {
+    	"time" : "00:30:00",
+        "CPUs" : 1,
+        "RAM_memory" : "1G",
+        "partition" : "cpu"
+    },
+    "get_window_fastas" :
+    {
+    	"time" : "12:00:00",
+        "CPUs" : 1,
+        "RAM_memory" : "1G",
+        "partition" : "cpu"
+    }    
+    
+}
+
+
