@@ -28,8 +28,9 @@ git clone https://github.com/mscharmann/phylogeny_pipeline
 - set up the input read files to samples map in "data/samples_units_readfiles.txt"
 
 ## 1. run pipeline
+```
 snakemake -j 500 --cluster-config cluster.axiom.json --cluster "sbatch -p {cluster.partition} -t {cluster.time} -c {cluster.CPUs} --mem={cluster.RAM_memory}" --restart-times 3 --keep-going --rerun-incomplete
-
+```
 
 ## 2. simple divergence report for four-fold degenerate and all sites:
 ```
