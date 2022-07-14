@@ -29,7 +29,7 @@ git clone https://github.com/mscharmann/phylogeny_pipeline
 
 ## 1. run pipeline
 ```
-snakemake -j 500 --cluster-config cluster.axiom.json --cluster "sbatch -p {cluster.partition} -t {cluster.time} -c {cluster.CPUs} --mem={cluster.RAM_memory}" --restart-times 3 --keep-going --rerun-incomplete
+snakemake -j 500 --cluster-config cluster.curnagl.json --cluster "sbatch -p {cluster.partition} -t {cluster.time} -c {cluster.CPUs} --mem={cluster.RAM_memory}" --restart-times 3 --keep-going --rerun-incomplete
 ```
 
 ## 2. simple divergence report for four-fold degenerate and all sites:
@@ -49,7 +49,7 @@ rm -r gene_trees
 RAxML will represent polytomies in NEWICK format as sequential dichotomies with very short branch lengths (1e-6). However, the super-tree tool ASTRAL will only use the tree topology, and will be misled by RAxML's representation of polytomies. Thus, to re-code the polytomies as actual NEWICK polytomies, use r-gieger:
 
 ```
-Rscript scripts/Rscript_collapse_polytomies.txt gene_trees.txt > gene_trees_for_ASTRAL.txt
+Rscript scripts/Rscript_collapse_polytomies.txt gene_trees.txt gene_trees_for_ASTRAL.txt
 ```
 
 ## 5. Supertree inference
