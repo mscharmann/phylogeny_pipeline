@@ -1,0 +1,21 @@
+chrom1	fake_pipeline	gene	1	5001	.	-	.	gene1
+chrom1	fake_pipeline	transcript	1	5001	.	-	.	transcript_id "gene1.t1"; gene_id "gene1"
+chrom1	fake_pipeline	CDS	1	5001	.	-	.	transcript_id "gene1.t1"; gene_id "gene1"
+chrom1	fake_pipeline	gene	10000	15000	.	-	.	gene2
+chrom1	fake_pipeline	transcript	10000	15000	.	-	.	transcript_id "gene2.t1"; gene_id "gene2"
+chrom1	fake_pipeline	CDS	10000	15000	.	-	.	transcript_id "gene2.t1"; gene_id "gene2"
+chrom1	fake_pipeline	gene	20000	25000	.	-	.	gene3
+chrom1	fake_pipeline	transcript	20000	25000	.	-	.	transcript_id "gene3.t1"; gene_id "gene3"
+chrom1	fake_pipeline	CDS	20000	25000	.	-	.	transcript_id "gene3.t1"; gene_id "gene3"
+chrom1	fake_pipeline	gene	30000	35000	.	-	.	gene4
+chrom1	fake_pipeline	transcript	30000	35000	.	-	.	transcript_id "gene4.t1"; gene_id "gene4"
+chrom1	fake_pipeline	CDS	30000	35000	.	-	.	transcript_id "gene4.t1"; gene_id "gene4"
+chrom1	fake_pipeline	gene	40000	45000	.	-	.	gene5
+chrom1	fake_pipeline	transcript	40000	45000	.	-	.	transcript_id "gene5.t1"; gene_id "gene5"
+chrom1	fake_pipeline	CDS	40000	45000	.	-	.	transcript_id "gene3.t1"; gene_id "gene3"
+chrom1	fake_pipeline	gene	50000	55000	.	-	.	gene6
+chrom1	fake_pipeline	transcript	50000	55000	.	-	.	transcript_id "gene6.t1"; gene_id "gene6"
+chrom1	fake_pipeline	CDS	50000	55000	.	-	.	transcript_id "gene6.t1"; gene_id "gene6"
+chrom1	fake_pipeline	gene	60000	65000	.	-	.	gene7
+chrom1	fake_pipeline	transcript	60000	65000	.	-	.	transcript_id "gene7.t1"; gene_id "gene7"
+chrom1	fake_pipeline	CDS	60000	65000	.	-	.	transcript_id "gene7.t1"; gene_id "gene7"

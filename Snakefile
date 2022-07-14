@@ -2,7 +2,7 @@ configfile: "config.yaml"
 
 genomefile = config["genomefile"]
 samples_units_fqs_map = config["samples_units_fqs_map"]
-windowfile = config["windows_for_gene_trees"]
+gff = config["gff"]
 
 import pandas as pd
 
@@ -38,13 +38,39 @@ def get_fastq_sample_ALL(wildcards):
 	return fastqs_clean
 
 
+def read_wrapped_or_unwrapped_fasta (infile):
+	outlines = []
+	with open(infile, "r") as INFILE:
+		first_id = INFILE.readline().strip("\n").strip(">")
+		outlines.append(first_id)
+		seq = ""
+		for line in INFILE:
+			line = line.strip("\n")
+			if line.startswith(">"):
+				outlines.append(seq)
+				outlines.append(line.strip(">").strip("\n"))
+				seq = ""
+			else:
+				if len(line) > 0:
+					seq += line.strip("\n")
+		# append last seq
+		outlines.append(seq)
+	i=0
+	j=1
+	out_dict = {}
+	for x in range(int(len(outlines)/2)):
+		out_dict[outlines[i]] = outlines[j]
+		i += 2
+		j += 2
+	return out_dict
+
+
 
 rule all:
 	input:
 		expand("mapped_reads/{sample}.sorted.bam.bai", sample=SAMPLES),
-		expand("results_raw/cov_excluded_regions.{sample}.bed", sample=SAMPLES),
-		"results_raw/variants.post_filter.vcf.gz",
-		"window_fastas"
+		expand("results_raw/features.{sample}.fa", sample=SAMPLES),
+		"supermatrix.stats.txt"
 	shell:
 		"""
 		rm -r varcall*
@@ -259,7 +285,7 @@ rule find_low_coverage_regions:
 		bam="mapped_reads/{sample}.sorted.bam",
 		fa=genomefile
 	output:
-		"results_raw/low_cov_regions.{sample}.bed"
+		temp("results_raw/low_cov_regions.{sample}.bed")
 	params:
 		MIN_DEPTH=config["VCF_MIN_DEPTH"]
 	shell:
@@ -277,7 +303,7 @@ rule find_high_coverage_regions:
 		bam="mapped_reads/{sample}.sorted.bam",
 		fa=genomefile
 	output:
-		bed="results_raw/high_cov_regions.{sample}.bed",
+		bed=temp("results_raw/high_cov_regions.{sample}.bed"),
 		d=temp("results_raw/depth.{sample}.txt"),
 		dc="results_raw/depth_cutoff.{sample}.txt"
 	shell:
@@ -310,49 +336,212 @@ rule merge_bad_regions:
 		"""
 
 
-rule apply_variants_and_gaps_to_genome:
+rule apply_variants_and_gaps_to_genome_and_extract_features:
 	input:
 		bad="results_raw/cov_excluded_regions.{sample}.bed",
 		vcf="results_raw/variants.post_filter.vcf.gz",
-		fa=genomefile
+		fa=genomefile,
+		gff=gff
 	output:
-		temp( "results_raw/genome.applied_variants_and_gaps.{sample}.fa" )
+		"results_raw/features.{sample}.fa"
 	shell:
 		"""
-		sname=$( echo {output} | sed 's/results_raw\/genome\.applied_variants_and_gaps\.//g' | sed 's/\.fa//g' )
-		bcftools consensus -f {input.fa} -m {input.bad} --haplotype I --missing - -s $sname {input.vcf} > {output}
-		
+		sname=$( echo {output} | sed 's/results_raw\/features\.//g' | sed 's/\.fa//g' )
+		bcftools consensus -f {input.fa} -m {input.bad} --haplotype I --missing - -s $sname {input.vcf} > $sname.GENOME_applied_variants_and_gaps.fa
+		gffread -g $sname.GENOME_applied_variants_and_gaps.fa -x {output} {input.gff}
+		sleep 2
+		rm $sname.GENOME_applied_variants_and_gaps.fa $sname.GENOME_applied_variants_and_gaps.fa.fai
 		"""
 
 
-rule get_window_fastas:
+rule bin_per_feature:  # this rule takes fastas with features per sample and re-arranges to one fasta per feature
 	input:
-		windows=windowfile,
-		g_apps=expand( "results_raw/genome.applied_variants_and_gaps.{sample}.fa", sample=SAMPLES),
-		vcf="results_raw/variants.post_filter.vcf.gz"
+		expand("results_raw/features.{sample}.fa", sample=SAMPLES)
 	output:
-		"window_fastas"
-	shell:
-		"""
-		mkdir {output}
-
-		while read w ; do
-		wname=$(echo $w | awk '{{print $1"_-_"$2"_-_"$3}}')
-		for case in $(bcftools query -l {input.vcf} ); do
-			#echo $case
-			echo ">"$case > ${{case}}_${{wname}}.temp.fasta 
-			echo $w | awk -v var=$case '{{print "samtools faidx results_raw/genome.applied_variants_and_gaps."var".fa "$1":"$2+1"-"$3}}' > fu ; source fu | grep -v ">" | tr -d "\n" | tr 'N' "-" >> ${{case}}_${{wname}}.temp.fasta
-			sed -i -e '$a\\' ${{case}}_${{wname}}.temp.fasta
-			cat ${{case}}_${{wname}}.temp.fasta >> window_${{wname}}.fasta
-			rm ${{case}}_${{wname}}.temp.fasta 
-		done
-		python scripts/filter_column_presence.py 0.9 window_${{wname}}.fasta > window_fastas/window_${{wname}}.filtered.fasta
-		rm window_${{wname}}.fasta
-		done < {input.windows}
+		temp( "feature_fastas_success" )
+	run:
+		# python code
+		import sys, os
+				
+		os.system("rm -r feature_fastas")
 		
-		rm fu
-		"""
+		allfiles = os.listdir("results_raw")
+		infiles = sorted([x for x in allfiles if x.startswith("features.")])
 
+		print("parsing files to get all features")
+
+		all_features = set()
+		for f in infiles:
+			with open("results_raw/" + f, "r") as I:
+				for line in I:
+					if line.startswith(">"):
+						t = line.strip(">").strip()
+						all_features.add(t)
+
+		all_features = list(sorted(all_features))				
+		print("features:")
+		print (len(all_features))
+		
+		print("second pass, now to get sequences and assembling outputs")
+		
+		os.mkdir("feature_fastas")
+		
+		for f in infiles:
+			inseqs = read_wrapped_or_unwrapped_fasta ("results_raw/" + f)
+			for feature in all_features:
+				outlines = []
+				outlines.append(">" + ".".join(f.split(".")[1:-1]))
+				outlines.append( inseqs[feature] )
+				with open("feature_fastas/" + feature + ".fa", "a") as O:
+					O.write("\n".join(outlines)+"\n")
+		os.system("touch feature_fastas_success")
+		
+
+
+rule filter_column_missingness:
+	input:
+		"feature_fastas_success"
+	output:
+		temp( "feature_fastas_filter_success" )
+	params:
+		COLUMN_MIN_PRESENCE="0.9",
+		MIN_BASES_PER_SAMPLE="99"
+	run:
+		# filter column missingness and retain only COMPLETE codons (given input codons!)
+		# exclude columns if they are present in < nsam * COLUMN_MIN_PRESENCE
+		# exclude samples that have < MIN_BASES_PER_SAMPLE
+		# replace N with - character
+		
+		column_min_pres_thresh = float( params.COLUMN_MIN_PRESENCE )
+		min_bases_per_sample = int( params.MIN_BASES_PER_SAMPLE )
+		
+		import os
+		os.system("rm -r feature_fastas_missingness_filtered")
+		os.system("mkdir feature_fastas_missingness_filtered")
+		
+		allfiles = os.listdir("feature_fastas/")
+		infiles = sorted([x for x in allfiles if x.endswith(".fa")])
+
+		for f in infiles:
+			indict = read_wrapped_or_unwrapped_fasta ("feature_fastas/" + f)
+			sample_order = list( indict.keys() )			
+			nsam = len(sample_order)
+			output_columns = []
+			out_dict = {k:"" for k in sample_order}
+			idx=0
+			while idx < len( list(indict.values())[0] ):
+				codon_column = [ indict[x][idx:(idx+3)] for x in sample_order ]
+				cleaned_codons = [ x if not "N" in x else "---" for x in codon_column]
+				present_codons = len( [ x for x in cleaned_codons if not "-" in x ] )
+				if present_codons >= column_min_pres_thresh*nsam:
+					for sidx,s in enumerate(sample_order):
+						out_dict[s] += cleaned_codons[sidx]
+				idx += 3
+			final_out_dict = {}
+			for k,v in out_dict.items():
+				if len( [ x for x in v if v != "-" ] ) >= min_bases_per_sample:
+					final_out_dict[k] = v			
+			outlines = [">" + k + "\n" + v for k,v in final_out_dict.items()]
+			with open("feature_fastas_missingness_filtered/" + f, "w") as O:
+				O.write("\n".join(outlines) + "\n")
+		os.system("rm -r feature_fastas")
+		os.system("touch feature_fastas_filter_success")
+
+
+	
+
+rule assemble_supermatrix:
+	input:
+		"feature_fastas_filter_success"
+	output:
+		"supermatrix.stats.txt"
+	params:
+		MIN_LEN_LOCUS = "99",
+		MIN_SAMPLE_FRACTION = "1.0"		
+	run:
+		# reads fasta alignments per-locus from a directory and assemble a supermatrix
+		# excludes alignments that are < MIN_LEN_LOCUS
+		# excludes alignments that have < MIN_SAMPLE_FRACTION * n_samples
+
+		import sys, os
+
+		allfiles = os.listdir( "feature_fastas_missingness_filtered" )
+		infiles = sorted([x for x in allfiles if x.endswith(".fa")])
+
+		min_len_locus = float( params.MIN_LEN_LOCUS )
+		min_sample_fraction = float( params.MIN_SAMPLE_FRACTION )
+
+		print("number of input files:")
+		print(len(infiles))
+		print("parsing files to get all taxa")
+
+		all_samples = set()
+		for f in infiles:
+			with open("feature_fastas_missingness_filtered/" + f, "r") as I:
+				for line in I:
+					if line.startswith(">"):
+						t = line.strip(">").strip()
+						all_samples.add(t)
+
+		all_samples = list(sorted(all_samples))				
+		print("n_samples:")
+		print (len(all_samples))
+		print("second pass, now to get sequences and assembling outputs")
+
+		locus_count = 0
+		out_seq_dict = {t:[] for t in all_samples}
+		modelfile_lines = []
+		left_idx = 1
+		right_idx = 0
+
+		for f in infiles:
+			nseq = 0
+			samples = []
+			seqlen = 0
+			indict = read_wrapped_or_unwrapped_fasta ("feature_fastas_missingness_filtered/" + f)
+			seqlen = len(  list(indict.values())[0] )
+			samples = list(indict.keys())
+			nseq = len(samples)
+			if nseq >= min_sample_fraction*len(all_samples): # sufficient number of samples have this locus
+				if seqlen >= min_len_locus:	# locus has sufficient length
+					locus_count += 1 
+					# prep supermatrix; filling in gaps for samples who do not have any data at this locus
+					for t in all_samples: 
+						try:
+							out_seq_dict[t].append( indict[t] )
+						except KeyError:
+							out_seq_dict[t].append( "-"*seqlen )			
+					# prep modelfile
+					right_idx += seqlen
+					mline = "DNA" + "," + ".".join(f.split(".")[:-1]) + "=" + str( left_idx ) + "-" + str( right_idx )
+					left_idx += seqlen
+					modelfile_lines.append( mline )
+
+
+		with open("supermatrix.model.txt","w") as outfile2:
+				outfile2.write( "\n".join( modelfile_lines ) + "\n")
+
+
+		outlines_fasta = [">" + k + "\n" + "".join(v) for k,v in out_seq_dict.items()]
+		with open("supermatrix.fasta","w") as outfile1:
+				outfile1.write( "\n".join( outlines_fasta ) + "\n")
+
+
+		with open("supermatrix.stats.txt", "w") as O:
+			O.write("\t".join( [ "sample" , "n_loci" , "total_length" , "proportion_gap" ] ) + "\n")
+			for k,v in out_seq_dict.items():
+				sline = []
+				sline.append(k)
+				sline.append( str(len(v)) )
+				all = "".join(v)
+				sline.append( str( len(all) ) )
+				nongap = "".join(v).replace("-","")
+				sline.append( str( round( 1.0 - float(len(nongap))/float(len(all)),3  ) ) )
+				O.write("\t".join( sline ) + "\n")
+			O.write("\n")
+			O.write("after filtering exported " + str(locus_count) + " out of " + str(len(infiles)) + " loci" + "\n")
+		os.system("rm -r feature_fastas_missingness_filtered")
+		
 		
 
 	

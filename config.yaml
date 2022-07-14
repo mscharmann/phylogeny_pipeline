@@ -1,6 +1,6 @@
 genomefile: "data/fakegenome.fa"
 samples_units_fqs_map: "data/samples_units_readfiles.txt"
-windows_for_gene_trees: "data/windows.bed"
+gff: "data/fake.gff"
 
 # bcftools jobs will be split to run on chunks of the data with equal size.
 varcall_chunksize: 10490000
