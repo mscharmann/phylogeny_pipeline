@@ -52,7 +52,7 @@ def read_wrapped_or_unwrapped_fasta (infile):
 				seq = ""
 			else:
 				if len(line) > 0:
-					seq += line.strip("\n")
+					seq += line.strip("\n").upper()
 		# append last seq
 		outlines.append(seq)
 	i=0
