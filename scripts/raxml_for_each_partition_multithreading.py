@@ -53,7 +53,7 @@ def read_wrapped_or_unwrapped_fasta (infile):
 	i=0
 	j=1
 	out_dict = {}
-	for x in range(len(outlines)/2):
+	for x in range(int(len(outlines)/2.0)):
 		out_dict[outlines[i]] = outlines[j]
 		i += 2
 		j += 2
@@ -65,7 +65,7 @@ def write_phylip_clean (cl_dict, outfile):
 		
 	with open(outfile, "w") as OUTFILE:
 		ntaxa = len(cl_dict.keys())
-		len_align = len(cl_dict[cl_dict.keys()[0]]) # gets value of first element in dictionary -> this OK since all seqs have same length
+		len_align = len(list(cl_dict.values())[0]) # gets value of first element in dictionary -> this OK since all seqs have same length
 		header = str(ntaxa) + " " + str(len_align) + "\n"
 		OUTFILE.write(header)
 		for sample, seq in cl_dict.items():
@@ -123,8 +123,8 @@ def split_alignment_and_do_raxml ( alignment_file, partitions_file, outdir, para
 ########## main
 
 if len(sys.argv) != 5:
-	print """usage: python raxml_for_each_partition_multithreading.py alignment_file partitions_file outdir total_cores\n
-RAxML will be called on 2 cores for each parallel job"""
+	print ("""usage: python raxml_for_each_partition_multithreading.py alignment_file partitions_file outdir total_cores\n
+RAxML will be called on 2 cores for each parallel job""")
 	
 	exit()
 
