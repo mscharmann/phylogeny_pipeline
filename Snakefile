@@ -70,13 +70,12 @@ rule all:
 	input:
 		expand("mapped_reads/{sample}.sorted.bam.bai", sample=SAMPLES),
 		expand("results_raw/features.{sample}.fa", sample=SAMPLES),
-		"supermatrix.stats.txt"
-	shell:
-		"""
-		rm -r varcall*
-		rm -r mapped_reads_per_unit
-		"""
-
+		"results_processed/supermatrix.stats.txt"
+	run:
+		import os
+		
+		os.system( "rm -r varcall*" )
+		os.system( "rm -r mapped_reads_per_unit" )
 
 
 rule bwa_idx:
@@ -239,7 +238,7 @@ rule VCF_filter_variants:
 		temp( "varcall_chunk_VCFs_filtered/{i}.bed.vcf.gz" )
 	params:
 		QUAL=config["VCF_QUAL"],
-		MIN_DEPTH=config["VCF_MIN_DEPTH"]
+		MIN_DEPTH=config["MIN_DEPTH"]
 	shell:
 		"""
 		## https://bcbio.wordpress.com/2013/10/21/updated-comparison-of-variant-detection-methods-ensemble-freebayes-and-minimal-bam-preparation-pipelines/#comment-1469
@@ -287,7 +286,7 @@ rule find_low_coverage_regions:
 	output:
 		temp("results_raw/low_cov_regions.{sample}.bed")
 	params:
-		MIN_DEPTH=config["VCF_MIN_DEPTH"]
+		MIN_DEPTH=config["MIN_DEPTH"]
 	shell:
 		"""
 		genomeCoverageBed -ibam {input.bam} -g {input.fa} -bga -split | awk '{{ if ($4<{params.MIN_DEPTH}) print}}' > {output}
@@ -343,7 +342,7 @@ rule apply_variants_and_gaps_to_genome_and_extract_features:
 		fa=genomefile,
 		gff=gff
 	output:
-		"results_raw/features.{sample}.fa"
+		temp( "results_raw/features.{sample}.fa" )
 	shell:
 		"""
 		sname=$( echo {output} | sed 's/results_raw\/features\.//g' | sed 's/\.fa//g' )
@@ -404,8 +403,8 @@ rule filter_column_missingness:
 	output:
 		temp( "feature_fastas_filter_success" )
 	params:
-		COLUMN_MIN_PRESENCE="0.9",
-		MIN_BASES_PER_SAMPLE="99"
+		COLUMN_MIN_PRESENCE=config["COLUMN_MIN_PRESENCE"],
+		MIN_BASES_PER_SAMPLE=config["MIN_BASES_PER_SAMPLE"]
 	run:
 		# filter column missingness and retain only COMPLETE codons (given input codons!)
 		# exclude columns if they are present in < nsam * COLUMN_MIN_PRESENCE
@@ -454,17 +453,20 @@ rule assemble_supermatrix:
 	input:
 		"feature_fastas_filter_success"
 	output:
-		"supermatrix.stats.txt"
+		"results_processed/supermatrix.stats.txt"
 	params:
-		MIN_LEN_LOCUS = "99",
-		MIN_SAMPLE_FRACTION = "1.0"		
+		MIN_LEN_LOCUS = config["MIN_LEN_LOCUS"],
+		MIN_SAMPLE_FRACTION = config["MIN_SAMPLE_FRACTION"]		
 	run:
 		# reads fasta alignments per-locus from a directory and assemble a supermatrix
 		# excludes alignments that are < MIN_LEN_LOCUS
 		# excludes alignments that have < MIN_SAMPLE_FRACTION * n_samples
 
 		import sys, os
-
+		
+		os.system("rm -r results_processed")
+		os.system("mkdir results_processed")
+		
 		allfiles = os.listdir( "feature_fastas_missingness_filtered" )
 		infiles = sorted([x for x in allfiles if x.endswith(".fa")])
 
@@ -518,16 +520,16 @@ rule assemble_supermatrix:
 					modelfile_lines.append( mline )
 
 
-		with open("supermatrix.model.txt","w") as outfile2:
+		with open("results_processed/supermatrix.model.txt","w") as outfile2:
 				outfile2.write( "\n".join( modelfile_lines ) + "\n")
 
 
 		outlines_fasta = [">" + k + "\n" + "".join(v) for k,v in out_seq_dict.items()]
-		with open("supermatrix.fasta","w") as outfile1:
+		with open("results_processed/supermatrix.fasta","w") as outfile1:
 				outfile1.write( "\n".join( outlines_fasta ) + "\n")
 
 
-		with open("supermatrix.stats.txt", "w") as O:
+		with open("results_processed/supermatrix.stats.txt", "w") as O:
 			O.write("\t".join( [ "sample" , "n_loci" , "total_length" , "proportion_gap" ] ) + "\n")
 			for k,v in out_seq_dict.items():
 				sline = []

@@ -5,6 +5,16 @@ gff: "data/fake.gff"
 # bcftools jobs will be split to run on chunks of the data with equal size.
 varcall_chunksize: 10490000
 
-# VCF_MISS: VCFTOOLS --max-missing argument. 1 = only fully present sites pass, 0.9 = at most 10% of samples are missing. Applied globally over all samples.
+# VCF variant filtering options
 VCF_QUAL: 20
-VCF_MIN_DEPTH: 6
+
+# minimum read depth to consider a site (variant or invariant)
+MIN_DEPTH: 6
+
+# alignment filtering parameters (applied before supermatrix filters, to each GFF feauture separately)
+COLUMN_MIN_PRESENCE: 0.5 # exclude alignment columns that have data (= are not gap, undetermined) in < COLUMN_MIN_PRESENCE * N_samples
+MIN_BASES_PER_SAMPLE: 99 # exclude samples whose non-gap aligned sequence is shorter than MIN_BASES_PER_SAMPLE, applied AFTER COLUMN_MIN_PRESENCE filter 
+
+# supermatrix filtering options (applied after alignment filtering)
+MIN_LEN_LOCUS: 99 # exclude loci that (after COLUMN_MIN_PRES filtering) are shorter than MIN_LEN_LOCUS
+MIN_SAMPLE_FRACTION: 1.0 # exclude loci that are present in < MIN_SAMPLE_FRACTION * N_samples		
