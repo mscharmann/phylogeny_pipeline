@@ -15,7 +15,7 @@ The outputs may be used to infer a supermatrix (concatenation) species tree, or 
 ## -1. setup
 
 ```
-conda create --name phylo_pipeline snakemake r-geiger bwa samtools bcftools vcftools raxml bedtools seqtk tabix gffread scipy vcflib -y
+conda create --name phylo_pipeline snakemake r-geiger bwa samtools bcftools vcftools raxml bedtools seqtk tabix gffread scipy vcflib openjdk -y
 conda activate phylo_pipeline 
 
 

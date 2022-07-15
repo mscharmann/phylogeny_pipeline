@@ -226,6 +226,7 @@ rule merge_filtered_vcfs:
 		# zcat input.region_vcfs | python $(which vcffirstheader) | vcfstreamsort -w 10000 | vcfuniq | bgzip -c > {output}
 		# zcat alone may complain about too many arguments, so better use find -exec :
 		find varcall_chunk_VCFs_filtered/*.bed.vcf.gz -type f -exec zcat {{}} \\; | python $(which vcffirstheader) | vcfstreamsort -w 10000 | vcfuniq | bgzip -c > {output}
+		sleep 20
 		tabix {output} 
 		"""
 
@@ -346,7 +347,8 @@ rule apply_variants_and_gaps_to_genome_and_extract_features:
 	shell:
 		"""
 		sname=$( echo {output} | sed 's/results_raw\/features\.//g' | sed 's/\.fa//g' )
-		bcftools consensus -f {input.fa} -m {input.bad} --haplotype I --missing - -s $sname {input.vcf} > $sname.GENOME_applied_variants_and_gaps.fa
+		bcftools consensus -f {input.fa} -m {input.bad} --haplotype I --missing N -s $sname {input.vcf} > $sname.GENOME_applied_variants_and_gaps.fa
+		sleep 10
 		gffread -g $sname.GENOME_applied_variants_and_gaps.fa -x {output} {input.gff}
 		sleep 2
 		rm $sname.GENOME_applied_variants_and_gaps.fa $sname.GENOME_applied_variants_and_gaps.fa.fai
@@ -438,7 +440,7 @@ rule filter_column_missingness:
 				idx += 3
 			final_out_dict = {}
 			for k,v in out_dict.items():
-				if len( [ x for x in v if v != "-" ] ) >= min_bases_per_sample:
+				if len( [ x for x in v if x != "-" ] ) >= min_bases_per_sample:
 					final_out_dict[k] = v			
 			outlines = [">" + k + "\n" + v for k,v in final_out_dict.items()]
 			with open("feature_fastas_missingness_filtered/" + f, "w") as O:
