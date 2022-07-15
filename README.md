@@ -15,7 +15,7 @@ The outputs may be used to infer a supermatrix (concatenation) species tree, or 
 ## -1. setup
 
 ```
-conda create --name phylo_pipeline snakemake r-geiger bwa samtools bcftools vcftools raxml bedtools seqtk tabix gffread scipy vcflib openjdk -y
+conda create --name phylo_pipeline snakemake r-geiger bwa samtools bcftools vcftools raxml bedtools seqtk tabix gffread scipy vcflib openjdk iqtree newick_utils -y
 conda activate phylo_pipeline 
 
 
@@ -40,7 +40,7 @@ python scripts/count_distance_at_fourfold_degenerate_sites.py results_processed/
 ## 3. gene tree inference
 script will NOT calculate branch supports for the gene trees / partitions.
 ```
-python scripts/raxml_for_each_partition_multithreading.py results_processed/supermatrix.fasta results_processed/supermatrix.model.txt gene_trees 48
+python scripts/iqtree_for_each_partition_multithreading.py results_processed/supermatrix.fasta results_processed/supermatrix.model.txt gene_trees 48
 cat gene_trees/*.tre > gene_trees.txt
 rm -r gene_trees
 ```
@@ -50,7 +50,16 @@ RAxML will represent polytomies in NEWICK format as sequential dichotomies with 
 
 ```
 Rscript scripts/Rscript_collapse_polytomies.txt gene_trees.txt gene_trees_for_ASTRAL.txt
+
+
 ```
+Newick utilities to collapse nodes with low support, here 70%, into polytomies:
+
+```
+nw_ed iqtrees.txt 'i & b<70' o > gene_trees_for_ASTRAL.txt
+
+```
+
 
 ## 5. Supertree inference
 
