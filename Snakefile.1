@@ -260,9 +260,8 @@ rule VCF_filter_variants:
 		# MAX_DEPTH is hardcoded here; it is just to reduce the VCF size already at this step. Actual high-coverage filtering is done LATER using regions in .BED format
 		MAX_DEPTH=250
 			
-		# variants: || "vcftools --min-meanDP" is a bad idea here, because it is a site-filter, not a genotype-filter: some low-coverage samples in the set may cause mean depth across samples to be low, thus loosing sites that are good and credible in the other samples!
-		#vcftools --gzvcf ../../{input.gzvcf} --mac 1 --minQ {params.QUAL} --min-meanDP {params.MIN_DEPTH} --minDP {params.MIN_DEPTH} --max-meanDP $MAX_DEPTH --recode --stdout | bgzip -c > tmp.1
-		vcftools --gzvcf ../../{input.gzvcf} --mac 1 --minQ {params.QUAL} --minDP {params.MIN_DEPTH} --max-meanDP $MAX_DEPTH --recode --stdout | bgzip -c > tmp.1
+		# variants:
+		vcftools --gzvcf ../../{input.gzvcf} --mac 1 --minQ {params.QUAL} --min-meanDP {params.MIN_DEPTH} --minDP {params.MIN_DEPTH} --max-meanDP $MAX_DEPTH --recode --stdout | bgzip -c > tmp.1
 		tabix tmp.1
 		
 		# filter for missingness: keep any site with at least two samples present
@@ -394,27 +393,15 @@ rule bin_per_feature:  # this rule takes fastas with features per sample and re-
 		print (len(all_features))
 		
 		print("second pass, now to get sequences and assembling outputs")
-
-		indata_dict = {}
-		for f in infiles:
-			inseqs = read_wrapped_or_unwrapped_fasta ("results_raw/" + f)
-			indata_dict[f] = inseqs
 		
 		os.mkdir("feature_fastas")
-
-		# split list into chunks of size n
-		n = 1000
-		x = [all_features[i:i + n] for i in range(0, len(all_features), n)]
-
-		cnt = 0
-		for featurechunk in x:
-			cnt += 1
-			print(cnt)
-			for feature in featurechunk:
+		
+		for f in infiles:
+			inseqs = read_wrapped_or_unwrapped_fasta ("results_raw/" + f)
+			for feature in all_features:
 				outlines = []
-				for f in infiles:
-					outlines.append(">" + ".".join(f.split(".")[1:-1]))
-					outlines.append( indata_dict[f][feature] )
+				outlines.append(">" + ".".join(f.split(".")[1:-1]))
+				outlines.append( inseqs[feature] )
 				with open("feature_fastas/" + feature + ".fa", "a") as O:
 					O.write("\n".join(outlines)+"\n")
 		os.system("touch feature_fastas_success")
@@ -451,12 +438,8 @@ rule filter_column_missingness:
 			nsam = len(sample_order)
 			output_columns = []
 			out_dict = {k:"" for k in sample_order}
-			# problem: sometimes gene predictions contain errors, so the full length of a coding sequence is not a multiple of three. In that case the trailing 1 or 2 sites shall be omitted.
-			iter_lim = len( list(indict.values())[0] )
-			while iter_lim % 3 != 0:
-				iter_lim -= 1 
 			idx=0
-			while idx < iter_lim:
+			while idx < len( list(indict.values())[0] ):
 				codon_column = [ indict[x][idx:(idx+3)] for x in sample_order ]
 				cleaned_codons = [ x if not "N" in x else "---" for x in codon_column]
 				present_codons = len( [ x for x in cleaned_codons if not "-" in x ] )
