@@ -38,10 +38,10 @@ python scripts/count_distance_at_fourfold_degenerate_sites.py results_processed/
 ```
 
 ## 3. gene tree inference
-script will NOT calculate branch supports for the gene trees / partitions.
+script will calculate branch supports for the gene trees / partitions using IQtree's Ultra-Fast Bootstrap 1000 ("--ufboot 1000")
 ```
 python scripts/iqtree_for_each_partition_multithreading.py results_processed/supermatrix.fasta results_processed/supermatrix.model.txt gene_trees 48
-cat gene_trees/*.tre > gene_trees.txt
+cat gene_trees/*.tre > results_processed/gene_trees.txt
 rm -r gene_trees
 ```
 
@@ -49,30 +49,31 @@ rm -r gene_trees
 RAxML will represent polytomies in NEWICK format as sequential dichotomies with very short branch lengths (1e-6). However, the super-tree tool ASTRAL will only use the tree topology, and will be misled by RAxML's representation of polytomies. Thus, to re-code the polytomies as actual NEWICK polytomies, use r-gieger:
 
 ```
-Rscript scripts/Rscript_collapse_polytomies.txt gene_trees.txt gene_trees_for_ASTRAL.txt
+Rscript scripts/Rscript_collapse_polytomies.txt results_processed/gene_trees.txt results_processed/gene_trees.collapsed_polytomies.txt
 
 
 ```
-Newick utilities to collapse nodes with low support, here 70%, into polytomies:
+Newick utilities to collapse nodes with low support, here 70%, into polytomies. This would most likely also collapse the extremely short branches into polytomies, so the above Rscript (which is slow) may not be necessary:
 
 ```
-nw_ed iqtrees.txt 'i & b<70' o > gene_trees_for_ASTRAL.txt
+nw_ed results_processed/gene_trees.collapsed_polytomies.txt 'i & b<70' o > results_processed/gene_trees.collapsed_polytomies.collapsed_low_support.txt
 
 ```
 
 
 ## 5. Supertree inference
+Newer version of ASTRAL by default calculates "only the posterior probability for the main resolution". To get Quartet Support instead, apply option "-t 1"
 
 ```
 wget https://github.com/smirarab/ASTRAL/raw/master/Astral.5.7.8.zip
 unzip Astral.5.7.8.zip
 
-java -jar Astral/astral.5.7.8.jar -i gene_trees_for_ASTRAL.txt -o ASTRAL.tre
+java -jar Astral/astral.5.7.8.jar -t 1 -i results_processed/gene_trees.collapsed_polytomies.collapsed_low_support.txt -o results_processed/ASTRAL.tre
 ```
 
 ## 6. Supermatrix (concatenation) species tree
 ```
 raxmlHPC-PTHREADS -T 24 -p 12345 -s results_processed/supermatrix.fasta -n XFU -m GTRCAT -f J
-cat RAxML_fastTreeSH_Support.XFU | perl -p -i -e 's/:(\d+\.\d+)\[(\d+)\]/$2:$1/g' >	supermatrix_tree.RAxML_fastTreeSH_Support.tre		
+cat RAxML_fastTreeSH_Support.XFU | perl -p -i -e 's/:(\d+\.\d+)\[(\d+)\]/$2:$1/g' >	results_processed/supermatrix_tree.RAxML_fastTreeSH_Support.tre		
 rm *XFU*				
 ```
