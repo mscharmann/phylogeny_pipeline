@@ -597,6 +597,7 @@ rule count_reads_input_and_mapping:
 	run:
 		cmd = "samtools flagstat " + input.bamfile + " > " + input.bamfile + ".flagstat.txt"
 		os.system( cmd )
+		os.system( "sleep 2" )
 		with open(input.bamfile +".flagstat.txt", "r") as I:
 			total_mapped = int(I.readline().split()[0])
 		os.system( "rm " +  input.bamfile +".flagstat.txt")
@@ -606,8 +607,10 @@ rule count_reads_input_and_mapping:
 		sum_of_read_fastq_lines = 0
 		for f in list(input.reads):
 			os.system( "pigz -p3 -dc {0} | wc -l > tmp.{1}.readcount".format(f,samplename) )
+			os.system( "sleep 2" )
 			with open( "tmp.{}.readcount".format(samplename), "r" ) as an_infile:
 				sum_of_read_fastq_lines += int(an_infile.readline().strip())
+			os.system( "sleep 2" )
 			os.system( "rm tmp.{}.readcount".format(samplename) )
 		n_reads = float(sum_of_read_fastq_lines)/4.0
 		mapping_rate = float(total_mapped)/n_reads
@@ -623,6 +626,9 @@ rule collect_mapping_report:
 	shell:
 		"""
 		echo -e "counts are single reads, not pairs of reads" > {output}
+		sleep 2
 		echo -e "sample\traw_reads\tmapped_reads\tmapping_rate" >> {output}
+		sleep 2
 		cat results_raw/*.raw_and_mapped_reads_report.txt >> {output}
+		sleep 2
 		"""
