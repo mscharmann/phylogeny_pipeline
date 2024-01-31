@@ -108,9 +108,10 @@ rule bwa_map:
 				# filtering alignments to be NOT supplementary (supplementary: sections of read map to discontinuous coordinates, e.g. across an inversion breakpoint..):
 				# -F 2048 == -F 0x800 == NOT supplementary alignment
 				# sum of the bit flags: 2304 => filters against BOTH non-primary and supplementary alignments; verified with samtools flagstat
-				# filtering alignments to be "properly paired": -f 2
 				# filtering against multi-mapping alignments (which have MAPQ=0): -q 1
-				bwa mem -t {threads} -a {input.fa} {input.reads[0]} {input.reads[1]} -R "@RG\\tID:{wildcards.sample}\\tSM:{wildcards.sample}\\tPL:Illumina" | samtools view -F 2304 -f 2 -q 1 -b -@ 2 - > {output}
+				# OK, now actually retain the supplementary ones,
+				# NOT reduce seed length, mismatch and clipping penalities, lower min score to output in an attemt to map more erroneous / divergent reads: -k 18 -B 3 -L 4 -T 20
+				bwa mem -t {threads} -a {input.fa} {input.reads[0]} {input.reads[1]} -R "@RG\\tID:{wildcards.sample}\\tSM:{wildcards.sample}\\tPL:Illumina" | samtools view -F 256 -q 1 -b -@ 2 - > {output}
 				""")
 		else: # single-end
 			shell("""
@@ -121,7 +122,8 @@ rule bwa_map:
 				# -F 4 read unmapped (0x4)
 				# sum of the bit flags: 2308 => filters against non-primary and supplementary alignments and unmapped
 				# filtering against multi-mapping alignments (which have MAPQ=0): -q 1
-				bwa mem -t {threads} -a {input.fa} {input.reads[0]} -R "@RG\\tID:{wildcards.sample}\\tSM:{wildcards.sample}\\tPL:Illumina" | samtools view -F 2308 -q 1 -b -@ 2 - > {output}
+				# NOT reduce seed length, mismatch and clipping penalities, lower min score to output in an attemt to map more erroneous / divergent reads: -k 18 -B 3 -L 4 -T 20
+				bwa mem -t {threads} -a {input.fa} {input.reads[0]} -R "@RG\\tID:{wildcards.sample}\\tSM:{wildcards.sample}\\tPL:Illumina" | samtools view -F 256 -q 1 -b -@ 2 - > {output}
 				""")
 
 
@@ -186,21 +188,32 @@ checkpoint split_ref_for_varcall:
 rule call_variants:
 	input:
 		ref=genomefile,
-		regions="varcall_chunks/{i}.bed"
+		regions="varcall_chunks/{i}.bed",
+		gff=config["gff"]
 	output:
 		temp( "varcall_chunk_VCFs/{i}.bed.vcf.gz" )
 	shell:
 		"""
+		# call variants ONLY in GFF regions:
+		bedtools intersect -a {input.regions} -b {input.gff} | sort -k 1,1 -k2,2n | bedtools merge > {input.regions}.gff_intersected.bed
 
-		# --max-depth 250: use at most 250 reads per input BAM file, apparently these are sampled RANDOMLY!?
-		# --min-MQ 15: minimum mapping quality of an alignment, otherwise skip
-		# --no-BAQ : do NOT re-calculate mapping quality (which involves re-aligning). Instead, will use MAPQ as stored in BAM file.
-		# --min-BQ INT        skip bases with baseQ/BAQ smaller than INT [13]
-		# --variants-only
-
-		bcftools mpileup -Ou -f {input.ref} -R {input.regions} --bam-list <( ls mapped_reads/*.bam ) --max-depth 250 --min-MQ 20 --min-BQ 15 --no-BAQ -a DP | bcftools call -m --variants-only --skip-variants indels -Ov | bgzip -c > {output}
-
+		# handle regions not overlapping with any genes, returning empty bed files for bcftools.
+		if [ -s {input.regions}.gff_intersected.bed ] ; then
+			# NOT --max-depth 1000: use at most 1000 reads per input BAM file, apparently these are sampled RANDOMLY!?
+			# NOT --min-MQ 20: minimum mapping quality of an alignment, otherwise skip
+			# NOT --no-BAQ : do NOT re-calculate mapping quality (which involves re-aligning). Instead, will use MAPQ as stored in BAM file.
+			# NOT --min-BQ INT        skip bases with baseQ/BAQ smaller than INT [1]
+			# --variants-only
+			bcftools mpileup -Ou -f {input.ref} -R {input.regions}.gff_intersected.bed --bam-list <( ls mapped_reads/*.bam ) --min-MQ 0 --min-BQ 1 -a DP -a INFO/AD -a FORMAT/AD | bcftools call -m --variants-only --skip-variants indels -Ov | bgzip -c > {output}
+		else
+			# input region is empty, therefore run without a specific region but return the HEADER of the VCF only, then terminate. VCF with at least the header are required for downstream; empty files will break pipeline.
+			# ensure that output directory exists.. and force return exist status 0, otherwise it will often break. Unclear why.
+			mkdir -p varcall_chunk_VCFs
+			bcftools mpileup -Ou -f {input.ref} --bam-list <( ls mapped_reads/*.bam ) --min-MQ 0 --min-BQ 1 -a DP -a INFO/AD -a FORMAT/AD | bcftools call -m --variants-only --skip-variants indels -Ov | awk '{{if ($1 == "#CHROM")  {{print ; exit;}} else print}}' | bgzip -c > {output} 2>&1 || true
+		fi
+		rm {input.regions}.gff_intersected.bed
 		"""
+
 
 
 def merge_vcfs_input(wildcards):
