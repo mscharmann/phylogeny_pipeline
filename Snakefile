@@ -68,7 +68,7 @@ def read_wrapped_or_unwrapped_fasta (infile):
 rule all:
 	input:
 		expand("mapped_reads/{sample}.sorted.bam.bai", sample=SAMPLES),
-		expand("results_raw/features.{sample}.fa", sample=SAMPLES),
+		#expand("results_raw/features.{sample}.fa", sample=SAMPLES),
 		"results_processed/supermatrix.stats.txt",
 		"results_processed/mapping_statistics_report.txt"
 	run:
@@ -505,7 +505,7 @@ rule assemble_supermatrix:
 
 		import sys, os
 
-		os.system("rm -r results_processed")
+		#os.system("rm -r results_processed")
 		os.system("mkdir results_processed")
 
 		allfiles = os.listdir( "feature_fastas_missingness_filtered" )
